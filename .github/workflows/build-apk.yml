@@ -1,0 +1,58 @@
+name: Build Android APK from ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Find ZIP
+        run: |
+          ls -la
+          ZIP_FILE=$(ls *.zip | head -n 1)
+          echo "ZIP_FILE=$ZIP_FILE" >> $GITHUB_ENV
+          echo "Found ZIP: $ZIP_FILE"
+
+      - name: Unzip source
+        run: |
+          mkdir source
+          unzip "$ZIP_FILE" -d source
+          echo "Files after unzip:"
+          ls -la source
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Install Gradle
+        run: |
+          curl -L https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle.zip
+          unzip -q gradle.zip -d $HOME/gradle
+          echo "$HOME/gradle/gradle-8.9/bin" >> $GITHUB_PATH
+
+      - name: Build debug APK
+        run: |
+          cd source
+          gradle --no-daemon assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VNStock-GitHub-Gist-debug-apk
+          path: source/app/build/outputs/apk/debug/app-debug.apk
